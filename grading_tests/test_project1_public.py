@@ -2,7 +2,6 @@ import pathlib
 
 import numpy as np
 import pytest
-
 from conftest import ATOL, GITHUB_LINK, RTOL
 
 FUNCTIONS = [
