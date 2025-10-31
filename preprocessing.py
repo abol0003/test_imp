@@ -2,7 +2,7 @@ import numpy as np
 import config
 import metrics
 import helpers
-import os 
+import os
 
 
 def replace_brfss_special_codes(X):
@@ -16,7 +16,7 @@ def replace_brfss_special_codes(X):
     """
     X = np.array(X, dtype=np.float32, copy=True)
     for j in range(X.shape[1]):
-        x = X[:, j] 
+        x = X[:, j]
         l = 0
         if np.sum((x > 9000) & (x < 9999)) >= 400:
             l = 1 if np.sum(x < 200) > 10 else 2
@@ -39,13 +39,15 @@ def replace_brfss_special_codes(X):
         elif l == 2:
             m = (x >= 200.0) & (x <= 711.0)
             if np.any(m):
-                ft = (x // 100.0)
-                inch = (x % 100.0)
+                ft = x // 100.0
+                inch = x % 100.0
                 x = np.where(m, ft * 30.48 + inch * 2.54, x)
         X[:, j] = x
     return X
 
-#==========================================
+
+# ==========================================
+
 
 def is_integer_array(v, tol=1e-6):
     """Return True if all non-NaN values are within a tolerance of an integer.
@@ -106,7 +108,8 @@ def infer_feature_types(X, max_unique_cat=None):
 
 
 def smart_impute(
-    Xtr, Xte,
+    Xtr,
+    Xte,
     skew_rule=0.5,
     allnan_fill_cont=0.0,
     allnan_fill_nom=-1.0,
@@ -193,10 +196,14 @@ def smart_impute(
 
     return Xtr, Xte
 
-#==========================================
+
+# ==========================================
+
 
 def one_hot_encoding_selected(
-    Xtr, Xte, cat_idx,
+    Xtr,
+    Xte,
+    cat_idx,
     drop_first=True,
     total_cap=None,
 ):
@@ -248,10 +255,15 @@ def one_hot_encoding_selected(
             continue
 
         used_idx.append(j)
-        plan.append((j, {
-            "kept_values": [float(x) for x in kept_all.tolist()],
-            "baseline": (None if baseline is None else float(baseline)),
-        }))
+        plan.append(
+            (
+                j,
+                {
+                    "kept_values": [float(x) for x in kept_all.tolist()],
+                    "baseline": (None if baseline is None else float(baseline)),
+                },
+            )
+        )
 
         tr_isnan = np.isnan(col_tr)
         te_isnan = np.isnan(col_te)
@@ -277,7 +289,7 @@ def one_hot_encoding_selected(
         base = Xtr_keep.shape[1]
         cursor = base
         k_per_feat = []
-        for (j, meta) in plan:
+        for j, meta in plan:
             k_feat = len(meta["kept_values"])
             if drop_first and meta["baseline"] is not None and k_feat > 0:
                 k_feat -= 1
@@ -290,16 +302,20 @@ def one_hot_encoding_selected(
     else:
         Xtr_new, Xte_new = Xtr_keep, Xte_keep
 
-    print(f"[Preprocess] one-hot:"
-          f" kept_raw={len(keep_idx)}"
-          f", encoded_feat={len(used_idx)}"
-          f", added_cols={sum(len(v) for v in dummy_map.values())}"
-          f", drop_first={drop_first}"
-          f", total_cap={total_cap}")
+    print(
+        f"[Preprocess] one-hot:"
+        f" kept_raw={len(keep_idx)}"
+        f", encoded_feat={len(used_idx)}"
+        f", added_cols={sum(len(v) for v in dummy_map.values())}"
+        f", drop_first={drop_first}"
+        f", total_cap={total_cap}"
+    )
 
-    return Xtr_new , Xte_new , plan, keep_idx, dummy_map
+    return Xtr_new, Xte_new, plan, keep_idx, dummy_map
 
-#==========================================
+
+# ==========================================
+
 
 def remove_highly_correlated_continuous(Xtr, Xte, cont_idx, y_train, threshold=0.90):
     """Prune highly correlated continuous features, favoring target-aligned and higher-variance columns.
@@ -319,16 +335,20 @@ def remove_highly_correlated_continuous(Xtr, Xte, cont_idx, y_train, threshold=0
     y = np.asarray(y_train, dtype=np.float32).ravel()
     cont_idx = np.asarray(cont_idx, dtype=int)
     if len(cont_idx) <= 1:
-        print(f"[Preprocess] corr prune (continuous): nothing to do (n_cont={len(cont_idx)}).")
+        print(
+            f"[Preprocess] corr prune (continuous): nothing to do (n_cont={len(cont_idx)})."
+        )
         kept = list(range(Xtr.shape[1]))
         return Xtr, Xte, [], kept
     Xc = Xtr[:, cont_idx]
     if np.isnan(Xc).any():
-        raise ValueError("NaNs in continuous block. Impute or standardize before pruning.")
+        raise ValueError(
+            "NaNs in continuous block. Impute or standardize before pruning."
+        )
     corr = np.corrcoef(Xc, rowvar=False)
     y_center = y - y.mean()
     Xc_center = Xc - Xc.mean(axis=0, keepdims=True)
-    denom = (np.sqrt((Xc_center**2).sum(axis=0)) * np.sqrt((y_center**2).sum()))
+    denom = np.sqrt((Xc_center**2).sum(axis=0)) * np.sqrt((y_center**2).sum())
     tgt_corr = np.zeros(Xc.shape[1], dtype=np.float32)
     nz = denom > 0
     tgt_corr[nz] = np.abs((Xc_center[:, nz].T @ y_center) / denom[nz])
@@ -338,7 +358,7 @@ def remove_highly_correlated_continuous(Xtr, Xte, cont_idx, y_train, threshold=0
     for i in range(D):
         if not keep_local[i]:
             continue
-        high = np.abs(corr[i, (i + 1):]) >= threshold
+        high = np.abs(corr[i, (i + 1) :]) >= threshold
         if not high.any():
             continue
         js = np.where(high)[0] + (i + 1)
@@ -361,10 +381,14 @@ def remove_highly_correlated_continuous(Xtr, Xte, cont_idx, y_train, threshold=0
     keep_global[cont_drop_idx] = False
     Xtr_new = Xtr[:, keep_global]
     Xte_new = Xte[:, keep_global]
-    print(f"[Preprocess] corr prune (continuous): thr={threshold} → dropped {len(cont_drop_idx)} / kept {len(cont_keep_idx)} continuous (final D={Xtr_new.shape[1]})")
+    print(
+        f"[Preprocess] corr prune (continuous): thr={threshold} → dropped {len(cont_drop_idx)} / kept {len(cont_keep_idx)} continuous (final D={Xtr_new.shape[1]})"
+    )
     return Xtr_new, Xte_new, cont_drop_idx.tolist(), np.where(keep_global)[0].tolist()
 
-#==========================================
+
+# ==========================================
+
 
 def pca_local_on_ohe(Xtr, Xte, dummy_map, cfg=None):
     """Apply PCA independently within each one-hot block to reduce dimensionality.
@@ -391,12 +415,20 @@ def pca_local_on_ohe(Xtr, Xte, dummy_map, cfg=None):
 
     if isinstance(cfg, (float, int)):
         cfg = {"variance_ratio": float(cfg)}
-    vr = float(np.clip(cfg.get("variance_ratio", 0.90), 0.0, 1.0)) if "n_components" not in cfg else None
+    vr = (
+        float(np.clip(cfg.get("variance_ratio", 0.90), 0.0, 1.0))
+        if "n_components" not in cfg
+        else None
+    )
     k_fixed = cfg.get("n_components", None)
     min_cols = int(cfg.get("min_cols", 6))
     replace = bool(cfg.get("replace", True))
 
-    groups = {int(j): list(map(int, idxs)) for j, idxs in dummy_map.items() if len(idxs) >= min_cols}
+    groups = {
+        int(j): list(map(int, idxs))
+        for j, idxs in dummy_map.items()
+        if len(idxs) >= min_cols
+    }
     if not groups:
         return Xtr, Xte, {"groups": {}, "total_k": 0}
 
@@ -411,12 +443,12 @@ def pca_local_on_ohe(Xtr, Xte, dummy_map, cfg=None):
         Xte_blk = Xte[:, cols]
 
         mean_tr = np.mean(Xtr_blk, axis=0, dtype=np.float64)
-        Xtr_c = (Xtr_blk - mean_tr) 
-        Xte_c = (Xte_blk - mean_tr) 
+        Xtr_c = Xtr_blk - mean_tr
+        Xte_c = Xte_blk - mean_tr
 
         _, S, Vt = np.linalg.svd(Xtr_c, full_matrices=False)
         n_samples = Xtr_c.shape[0]
-        explained_var = (S ** 2) / max(n_samples - 1, 1)
+        explained_var = (S**2) / max(n_samples - 1, 1)
         explained_ratio = explained_var / np.sum(explained_var)
 
         k_max = Vt.shape[0]
@@ -426,16 +458,16 @@ def pca_local_on_ohe(Xtr, Xte, dummy_map, cfg=None):
             cumsum = np.cumsum(explained_ratio)
             k = int(np.searchsorted(cumsum, vr, side="left") + 1)
 
-        comps = Vt[:k, :].T 
+        comps = Vt[:k, :].T
         Ztr = Xtr_c @ comps
         Zte = Xte_c @ comps
 
         spec_groups[j] = {
             "cols": cols.tolist(),
             "k": int(k),
-            "mean": mean_tr ,
+            "mean": mean_tr,
             "components": comps,
-            "explained_ratio": explained_ratio[:k] ,
+            "explained_ratio": explained_ratio[:k],
         }
         total_k += k
 
@@ -445,14 +477,20 @@ def pca_local_on_ohe(Xtr, Xte, dummy_map, cfg=None):
         proj_te_list.append(Zte)
 
     if replace:
-        Xtr_out = np.column_stack([Xtr[:, keep_mask]] + proj_tr_list) if proj_tr_list else Xtr
-        Xte_out = np.column_stack([Xte[:, keep_mask]] + proj_te_list) if proj_te_list else Xte
+        Xtr_out = (
+            np.column_stack([Xtr[:, keep_mask]] + proj_tr_list) if proj_tr_list else Xtr
+        )
+        Xte_out = (
+            np.column_stack([Xte[:, keep_mask]] + proj_te_list) if proj_te_list else Xte
+        )
 
         base = int(keep_mask.sum())
         pca_idx_cursor = base
         for j in groups.keys():
             k = int(spec_groups[j]["k"])
-            spec_groups[j]["pca_component_idx"] = list(range(pca_idx_cursor, pca_idx_cursor + k))
+            spec_groups[j]["pca_component_idx"] = list(
+                range(pca_idx_cursor, pca_idx_cursor + k)
+            )
             pca_idx_cursor += k
     else:
         Xtr_out = np.column_stack([Xtr] + proj_tr_list) if proj_tr_list else Xtr
@@ -462,13 +500,19 @@ def pca_local_on_ohe(Xtr, Xte, dummy_map, cfg=None):
         pca_idx_cursor = base
         for j in groups.keys():
             k = int(spec_groups[j]["k"])
-            spec_groups[j]["pca_component_idx"] = list(range(pca_idx_cursor, pca_idx_cursor + k))
+            spec_groups[j]["pca_component_idx"] = list(
+                range(pca_idx_cursor, pca_idx_cursor + k)
+            )
             pca_idx_cursor += k
 
-    print(f"[Preprocess] PCA-Local on OHE: groups={len(groups)} total_k={total_k} replace={replace}")
-    return Xtr_out , Xte_out , {"groups": spec_groups, "total_k": int(total_k)}
+    print(
+        f"[Preprocess] PCA-Local on OHE: groups={len(groups)} total_k={total_k} replace={replace}"
+    )
+    return Xtr_out, Xte_out, {"groups": spec_groups, "total_k": int(total_k)}
 
-#==========================================
+
+# ==========================================
+
 
 def standardize(Xtr_new, Xte_new, cont_idx=None, return_updated_idx=False):
     """Standardize using training stats; drop zero-variance columns.
@@ -486,8 +530,8 @@ def standardize(Xtr_new, Xte_new, cont_idx=None, return_updated_idx=False):
 
     # ---------- GLOBAL STANDARDIZATION ----------
     if not use_subset:
-        mean_tr = np.mean(Xtr_new, axis=0) 
-        std_tr = np.std(Xtr_new, axis=0) 
+        mean_tr = np.mean(Xtr_new, axis=0)
+        std_tr = np.std(Xtr_new, axis=0)
 
         zero_var_mask = std_tr == 0
         std_safe = std_tr.copy()
@@ -501,22 +545,30 @@ def standardize(Xtr_new, Xte_new, cont_idx=None, return_updated_idx=False):
             dropped = int(np.sum(zero_var_mask))
             Xtr_s = Xtr_s[:, keep_mask]
             Xte_s = Xte_s[:, keep_mask]
-            print(f"[Standardize] mode=global | dropped {dropped} zero-variance columns | Xtr,Xte: {Xtr_s.shape} {Xte_s.shape}")
+            print(
+                f"[Standardize] mode=global | dropped {dropped} zero-variance columns | Xtr,Xte: {Xtr_s.shape} {Xte_s.shape}"
+            )
         else:
-            print(f"[Standardize] mode=global | no zero-variance | Xtr,Xte: {Xtr_s.shape} {Xte_s.shape}")
+            print(
+                f"[Standardize] mode=global | no zero-variance | Xtr,Xte: {Xtr_s.shape} {Xte_s.shape}"
+            )
 
         return (
-            (Xtr_s , Xte_s )
+            (Xtr_s, Xte_s)
             if not return_updated_idx
-            else (Xtr_s, Xte_s, np.array(cont_idx if cont_idx is not None else [], dtype=int))
+            else (
+                Xtr_s,
+                Xte_s,
+                np.array(cont_idx if cont_idx is not None else [], dtype=int),
+            )
         )
 
     # ---------- SUBSET STANDARDIZATION ----------
     cont_idx = np.asarray(cont_idx, dtype=int)
     Xtr_s = Xtr_new.copy()
     Xte_s = Xte_new.copy()
-    mu = np.mean(Xtr_new[:, cont_idx], axis=0) 
-    sd = np.std(Xtr_new[:, cont_idx], axis=0) 
+    mu = np.mean(Xtr_new[:, cont_idx], axis=0)
+    sd = np.std(Xtr_new[:, cont_idx], axis=0)
 
     zero_var_mask_local = sd == 0
     sd_safe = sd.copy()
@@ -537,17 +589,23 @@ def standardize(Xtr_new, Xte_new, cont_idx=None, return_updated_idx=False):
         pos_map = {old: new for new, old in enumerate(new_positions)}
         cont_idx_kept_new = np.array([pos_map[i] for i in cont_idx_kept_old], dtype=int)
 
-        print(f"[Standardize] mode=subset | dropped {len(to_drop_global)} zero-variance continuous cols | Xtr,Xte: {Xtr_s.shape} {Xte_s.shape}")
+        print(
+            f"[Standardize] mode=subset | dropped {len(to_drop_global)} zero-variance continuous cols | Xtr,Xte: {Xtr_s.shape} {Xte_s.shape}"
+        )
         if return_updated_idx:
             return Xtr_s, Xte_s, cont_idx_kept_new
         return Xtr_s, Xte_s
 
-    print(f"[Standardize] mode=subset | n_cols={len(cont_idx)} | Xtr,Xte: {Xtr_s.shape} {Xte_s.shape}")
+    print(
+        f"[Standardize] mode=subset | n_cols={len(cont_idx)} | Xtr,Xte: {Xtr_s.shape} {Xte_s.shape}"
+    )
     if return_updated_idx:
         return Xtr_s, Xte_s, cont_idx
     return Xtr_s, Xte_s
 
-#==========================================
+
+# ==========================================
+
 
 def pca(Xtr, Xte, cols=None, n_components=None, variance_ratio=None, replace=True):
     """Fit PCA on selected columns (train), project both splits.
@@ -572,15 +630,15 @@ def pca(Xtr, Xte, cols=None, n_components=None, variance_ratio=None, replace=Tru
     Xtr_blk = Xtr[:, cols]
     Xte_blk = Xte[:, cols]
     mean_tr = np.mean(Xtr_blk, axis=0, dtype=np.float64)
-    Xtr_c = (Xtr_blk - mean_tr) 
-    Xte_c = (Xte_blk - mean_tr) 
+    Xtr_c = Xtr_blk - mean_tr
+    Xte_c = Xte_blk - mean_tr
     _, S, Vt = np.linalg.svd(Xtr_c, full_matrices=False)
     n_samples = Xtr_c.shape[0]
-    explained_var = (S ** 2) / max(n_samples - 1, 1)
+    explained_var = (S**2) / max(n_samples - 1, 1)
     explained_ratio = explained_var / np.sum(explained_var)
     k_max = Vt.shape[0]
     k = k_max
-    cfg_k =config.PCA_K
+    cfg_k = config.PCA_K
     if variance_ratio is not None:
         vr = float(np.clip(variance_ratio, 0.0, 1.0))
         cumsum = np.cumsum(explained_ratio)
@@ -593,11 +651,13 @@ def pca(Xtr, Xte, cols=None, n_components=None, variance_ratio=None, replace=Tru
             k = int(np.searchsorted(cumsum, cfg_k, side="left") + 1)
         else:
             k = int(min(max(cfg_k, 1), k_max))
-    components = Vt[:k, :].T 
+    components = Vt[:k, :].T
     Xtr_proj = Xtr_c @ components
     Xte_proj = Xte_c @ components
     explained = float(np.sum(explained_ratio[:k])) * 100
-    print(f"[Preprocess] PCA: block d={Xtr_blk.shape[1]} → k={k} comps ({explained:.2f}% variance), replace={replace}")
+    print(
+        f"[Preprocess] PCA: block d={Xtr_blk.shape[1]} → k={k} comps ({explained:.2f}% variance), replace={replace}"
+    )
     if replace:
         keep_idx = [j for j in range(Xtr.shape[1]) if j not in set(cols)]
         Xtr_out = np.column_stack([Xtr[:, keep_idx], Xtr_proj])
@@ -611,21 +671,27 @@ def pca(Xtr, Xte, cols=None, n_components=None, variance_ratio=None, replace=Tru
         pca_component_idx = list(range(base, base + Xtr_proj.shape[1]))
     spec = {
         "cols": np.array(cols, int).tolist(),
-        "mean": mean_tr ,
+        "mean": mean_tr,
         "components": components,
-        "explained_ratio": explained_ratio[:k] ,
+        "explained_ratio": explained_ratio[:k],
         "k": k,
         "replace": bool(replace),
         "pca_component_idx": pca_component_idx,
     }
-    return Xtr_out , Xte_out , spec
+    return Xtr_out, Xte_out, spec
 
-#==========================================
+
+# ==========================================
+
 
 def filter_add_predictive_nan_indicators(
-    Xtr, Xte, y_train,
-    threshold=0.01, top_k=128,
-    min_prevalence=0.005, max_prevalence=0.995
+    Xtr,
+    Xte,
+    y_train,
+    threshold=0.01,
+    top_k=128,
+    min_prevalence=0.005,
+    max_prevalence=0.995,
 ):
     """Add missingness indicators selected by correlation with the target.
 
@@ -639,22 +705,30 @@ def filter_add_predictive_nan_indicators(
     y = np.asarray(y_train, np.float32).ravel()
 
     # ---- 1) ----
-    test_nan_rate = np.isnan(Xte).mean(axis=0) if len(Xte) > 0 else np.array([], dtype=np.float32)
-    keep_cols = test_nan_rate < 0.70 if len(test_nan_rate) > 0 else np.array([], dtype=bool)
+    test_nan_rate = (
+        np.isnan(Xte).mean(axis=0) if len(Xte) > 0 else np.array([], dtype=np.float32)
+    )
+    keep_cols = (
+        test_nan_rate < 0.70 if len(test_nan_rate) > 0 else np.array([], dtype=bool)
+    )
     if len(test_nan_rate) > 0 and not np.all(keep_cols):
         n_drop = int((~keep_cols).sum())
         n_keep = int(keep_cols.sum())
-        print(f"[Preprocess] NaN-based feature filter (test): dropped={n_drop}, kept={n_keep}, thr=0.70")
+        print(
+            f"[Preprocess] NaN-based feature filter (test): dropped={n_drop}, kept={n_keep}, thr=0.70"
+        )
         if n_keep == 0:
-            return Xtr[:, :0] , Xte[:, :0] 
+            return Xtr[:, :0], Xte[:, :0]
         Xtr = Xtr[:, keep_cols]
         Xte = Xte[:, keep_cols]
     elif len(test_nan_rate) > 0:
-        print(f"[Preprocess] NaN-based feature filter (test): dropped=0, kept={Xtr.shape[1]}, thr=0.30")
+        print(
+            f"[Preprocess] NaN-based feature filter (test): dropped=0, kept={Xtr.shape[1]}, thr=0.30"
+        )
 
     # ---- 2) ----
-    Mtr = np.isnan(Xtr) 
-    Mte = np.isnan(Xte) 
+    Mtr = np.isnan(Xtr)
+    Mte = np.isnan(Xte)
     if len(Mtr.T) == 0:
         print("[Preprocess] NaN indicators: no features after test-NaN filter")
         return Xtr, Xte
@@ -681,7 +755,7 @@ def filter_add_predictive_nan_indicators(
     else:
         cand_local = np.arange(len(scores))
     if top_k is not None and len(cand_local) > int(top_k):
-        order = np.argsort(-scores[cand_local])[:int(top_k)]
+        order = np.argsort(-scores[cand_local])[: int(top_k)]
         cand_local = cand_local[order]
 
     # ---- 4) ----
@@ -691,10 +765,14 @@ def filter_add_predictive_nan_indicators(
         return Xtr, Xte
     Xtr_aug = np.hstack([Xtr, Mtr[:, cand_global]])
     Xte_aug = np.hstack([Xte, Mte[:, cand_global]])
-    print(f"[Preprocess] NaN indicators: add {len(cand_global)}/{Xtr.shape[1]} (thr={threshold}, top_k={top_k}, prev∈[{min_prevalence},{max_prevalence}])")
-    return Xtr_aug , Xte_aug 
+    print(
+        f"[Preprocess] NaN indicators: add {len(cand_global)}/{Xtr.shape[1]} (thr={threshold}, top_k={top_k}, prev∈[{min_prevalence},{max_prevalence}])"
+    )
+    return Xtr_aug, Xte_aug
 
-#==========================================
+
+# ==========================================
+
 
 def _listify_idx(idx, d):
     """Return a NumPy array of indices. If None, return all column indices.
@@ -816,8 +894,14 @@ def polynomial_features(
         keep_pairs = scores_pairs >= float(min_abs_corr)
 
     # Ranking
-    order_sq = np.argsort(-(scores_sq[keep_sq])) if len(scores_sq) else np.array([], dtype=int)
-    order_pairs = np.argsort(-(scores_pairs[keep_pairs])) if len(scores_pairs) else np.array([], dtype=int)
+    order_sq = (
+        np.argsort(-(scores_sq[keep_sq])) if len(scores_sq) else np.array([], dtype=int)
+    )
+    order_pairs = (
+        np.argsort(-(scores_pairs[keep_pairs]))
+        if len(scores_pairs)
+        else np.array([], dtype=int)
+    )
 
     # Keep top-k interactions (after threshold)
     if len(scores_pairs):
@@ -877,7 +961,9 @@ def polynomial_features(
     else:
         Xte_aug = Xte
 
-    print(f"[Preprocess] Polynomial features: added {spec['n_added']} (squares={len(spec['squares'])}, pairs={len(spec['pairs'])})")
+    print(
+        f"[Preprocess] Polynomial features: added {spec['n_added']} (squares={len(spec['squares'])}, pairs={len(spec['pairs'])})"
+    )
     return Xtr_aug, Xte_aug, spec
 
 
@@ -916,8 +1002,10 @@ def encode_ordinal_as_score(Xtr, Xte, ord_idx, scale_to_unit=True):
             in_bounds_tr = idx_tr < len(cats_sorted)
             match_tr = np.zeros_like(idx_tr, dtype=bool)
             if in_bounds_tr.any():
-                match_tr[in_bounds_tr] = (cats_sorted[idx_tr[in_bounds_tr]] == vtr[valid_tr][in_bounds_tr])
-            ranks_tr[valid_tr] = np.where(match_tr, idx_tr, K) 
+                match_tr[in_bounds_tr] = (
+                    cats_sorted[idx_tr[in_bounds_tr]] == vtr[valid_tr][in_bounds_tr]
+                )
+            ranks_tr[valid_tr] = np.where(match_tr, idx_tr, K)
 
         vte = Xte[:, j]
         ranks_te = np.full(vte.shape, np.nan, dtype=np.float32)
@@ -927,8 +1015,10 @@ def encode_ordinal_as_score(Xtr, Xte, ord_idx, scale_to_unit=True):
             in_bounds_te = idx_te < len(cats_sorted)
             match_te = np.zeros_like(idx_te, dtype=bool)
             if in_bounds_te.any():
-                match_te[in_bounds_te] = (cats_sorted[idx_te[in_bounds_te]] == vte[valid_te][in_bounds_te])
-            ranks_te[valid_te] = np.where(match_te, idx_te, K) 
+                match_te[in_bounds_te] = (
+                    cats_sorted[idx_te[in_bounds_te]] == vte[valid_te][in_bounds_te]
+                )
+            ranks_te[valid_te] = np.where(match_te, idx_te, K)
 
         if scale_to_unit and K > 0:
             ranks_tr = ranks_tr / K
@@ -961,11 +1051,13 @@ def drop_useless_columns(Xtr, Xte, drop_n=0):
     Xtr = Xtr[:, drop_n:]
     Xte = Xte[:, drop_n:]
     Xtr = np.hstack([keep_col1, Xtr])
-    Xte = np.hstack([keep_col1[:Xte.shape[0]], Xte])
+    Xte = np.hstack([keep_col1[: Xte.shape[0]], Xte])
     return Xtr, Xte
 
-#==========================================
-#==========================================
+
+# ==========================================
+# ==========================================
+
 
 def preprocess2():
     """
@@ -996,25 +1088,31 @@ def preprocess2():
         Tuple (Xtr, Xte, ytr_01): processed train/test features and labels converted to {0, 1}.
     """
     if config.PREPROCESSING:
-        Xtr_raw, Xte_raw, ytr_pm1, train_ids, test_ids = helpers.load_csv_data(config.DATA_DIR)
-        
+        Xtr_raw, Xte_raw, ytr_pm1, train_ids, test_ids = helpers.load_csv_data(
+            config.DATA_DIR
+        )
+
         Xtr = np.asarray(Xtr_raw, np.float32)
         Xte = np.asarray(Xte_raw, np.float32)
         ytr_01 = metrics.to_01_labels(ytr_pm1)
         print(f"[Pipeline] Start | Xtr={Xtr.shape} Xte={Xte.shape} y={ytr_01.shape}")
 
-        #--- Step 0: Drop useless columns ---
+        # --- Step 0: Drop useless columns ---
         drop_n = config.DROP_FIRST_N_CAT_COLS
-        if drop_n>0:
+        if drop_n > 0:
             Xtr, Xte = drop_useless_columns(Xtr, Xte, drop_n=drop_n)
-        print(f"[Step0] Dropped useless cols (col 1 kept) | Xtr={Xtr.shape} Xte={Xte.shape}")
+        print(
+            f"[Step0] Dropped useless cols (col 1 kept) | Xtr={Xtr.shape} Xte={Xte.shape}"
+        )
 
-        #--- Step 1: BRFSS special codes ---
+        # --- Step 1: BRFSS special codes ---
         Xtr = replace_brfss_special_codes(Xtr)
         Xte = replace_brfss_special_codes(Xte)
-        print(f"[Step1] BRFSS cleaned | NaN train={np.isnan(Xtr).sum()} NaN test={np.isnan(Xte).sum()}")
+        print(
+            f"[Step1] BRFSS cleaned | NaN train={np.isnan(Xtr).sum()} NaN test={np.isnan(Xte).sum()}"
+        )
 
-        #--- Step 1.b: Ordinal encoding ---
+        # --- Step 1.b: Ordinal encoding ---
         types = infer_feature_types(Xtr, max_unique_cat=config.LOW_CARD_MAX_UNIQUE)
         ord_idx = types["ordinal"]
         if len(ord_idx) > 0 and config.ORDINAL_ENCODE:
@@ -1023,117 +1121,151 @@ def preprocess2():
             )
             print(f"[Ordinals] encoded {len(ord_idx)} columns as monotone scores")
 
-        #-- Step 3: One-hot encoding ---
+        # -- Step 3: One-hot encoding ---
         cont_idx_std = types["continuous"]
         cat_nom_idx = types["nominal"]
 
-
-        print(f"[Step1.b] OHE | #nominal={len(cat_nom_idx)} drop_first={config.ONEHOT_DROP_FIRST} total_cap={config.MAX_ADDED_ONEHOT}")
+        print(
+            f"[Step1.b] OHE | #nominal={len(cat_nom_idx)} drop_first={config.ONEHOT_DROP_FIRST} total_cap={config.MAX_ADDED_ONEHOT}"
+        )
 
         Xtr, Xte, _, keep_idx, dummy_map = one_hot_encoding_selected(
-        Xtr, Xte, cat_nom_idx,
-        drop_first=config.ONEHOT_DROP_FIRST,
-        total_cap=config.MAX_ADDED_ONEHOT,
-    )
-        ohe_start = len(keep_idx) 
+            Xtr,
+            Xte,
+            cat_nom_idx,
+            drop_first=config.ONEHOT_DROP_FIRST,
+            total_cap=config.MAX_ADDED_ONEHOT,
+        )
+        ohe_start = len(keep_idx)
         ohe_end = Xtr.shape[1]
-        ohe_cols = np.arange(ohe_start, ohe_end, dtype=int) #for PCA later
+        ohe_cols = np.arange(ohe_start, ohe_end, dtype=int)  # for PCA later
         print(f"[Step2] OHE done | Xtr={Xtr.shape} Xte={Xte.shape}")
 
-        #--- Step 4: PCA on OHE ---
+        # --- Step 4: PCA on OHE ---
         if config.PCA_Local is not None:
-            Xtr, Xte, pca_local_spec = pca_local_on_ohe(Xtr, Xte, dummy_map, cfg=config.PCA_Local)
+            Xtr, Xte, pca_local_spec = pca_local_on_ohe(
+                Xtr, Xte, dummy_map, cfg=config.PCA_Local
+            )
 
-            #for later use 
+            # for later use
             pca_idx_list = []
             for meta in pca_local_spec.get("groups", {}).values():
                 pca_idx_list.extend(meta.get("pca_component_idx", []))
-            pca_spec = {"k": int(pca_local_spec.get("total_k", 0)), "pca_component_idx": pca_idx_list}
-            print(f"[Step3] PCA-Local on OHE | Xtr={Xtr.shape} Xte={Xte.shape} | total_k={pca_spec['k']}")
+            pca_spec = {
+                "k": int(pca_local_spec.get("total_k", 0)),
+                "pca_component_idx": pca_idx_list,
+            }
+            print(
+                f"[Step3] PCA-Local on OHE | Xtr={Xtr.shape} Xte={Xte.shape} | total_k={pca_spec['k']}"
+            )
 
-        else: # Global PCA but not use at the end of project 
+        else:  # Global PCA but not use at the end of project
             pca_var = config.PCA_VAR
             pca_k = config.PCA_K
             if len(ohe_cols) > 0:
                 Xtr, Xte, pca_spec = pca(
-                    Xtr, Xte,
+                    Xtr,
+                    Xte,
                     cols=ohe_cols,
                     n_components=(None if isinstance(pca_k, float) else pca_k),
                     variance_ratio=(pca_var if isinstance(pca_var, float) else None),
-                    replace=True
+                    replace=True,
                 )
             else:
                 pca_spec = {"k": 0, "pca_component_idx": []}
-            print(f"[Step3] PCA on OHE | Xtr={Xtr.shape} Xte={Xte.shape} | k={pca_spec.get('k', 0)}")
+            print(
+                f"[Step3] PCA on OHE | Xtr={Xtr.shape} Xte={Xte.shape} | k={pca_spec.get('k', 0)}"
+            )
 
-        #--- Step 5: NaN indicators ---
+        # --- Step 5: NaN indicators ---
         n_before = Xtr.shape[1]
         Xtr, Xte = filter_add_predictive_nan_indicators(
-            Xtr, Xte, ytr_01,
+            Xtr,
+            Xte,
+            ytr_01,
             threshold=config.NAN_INDICATOR_MIN_ABS_CORR,
             top_k=config.NAN_INDICATOR_TOPK,
             min_prevalence=config.NAN_INDICATOR_MIN_PREV,
-            max_prevalence=config.NAN_INDICATOR_MAX_PREV
+            max_prevalence=config.NAN_INDICATOR_MAX_PREV,
         )
-        print(f"[Step4] NaN indicators | +{Xtr.shape[1] - n_before} cols | Xtr={Xtr.shape} Xte={Xte.shape}")
+        print(
+            f"[Step4] NaN indicators | +{Xtr.shape[1] - n_before} cols | Xtr={Xtr.shape} Xte={Xte.shape}"
+        )
 
-        #--- Step 5: Imputation ---
+        # --- Step 5: Imputation ---
         Xtr, Xte = smart_impute(
-            Xtr, Xte,
+            Xtr,
+            Xte,
             skew_rule=0.5,
             allnan_fill_cont=0.0,
-            allnan_fill_nom=-1.0, #fallback values
-            allnan_fill_bin=0.0 
+            allnan_fill_nom=-1.0,  # fallback values
+            allnan_fill_bin=0.0,
         )
 
         print(f"[Step5] Impute Done")
-        assert (np.isnan(Xtr).sum() == 0) and (np.isnan(Xte).sum() == 0), "There are still NaNs in Xtr or Xte after imputation!" #sanity check
+        assert (np.isnan(Xtr).sum() == 0) and (
+            np.isnan(Xte).sum() == 0
+        ), "There are still NaNs in Xtr or Xte after imputation!"  # sanity check
 
-        #--- Step 6: Polynomial feature expansion ---
+        # --- Step 6: Polynomial feature expansion ---
         if config.POLY_ENABLE:
             cont_idx_base = cont_idx_std
 
             Xtr, Xte, poly_spec = polynomial_features(
-                Xtr, Xte, ytr_01,
+                Xtr,
+                Xte,
+                ytr_01,
                 cont_idx=cont_idx_base,
                 add_squares_cont=config.POLY_ADD_SQUARES_CONT,
                 add_inter_within_cont=config.POLY_ADD_INTER_CONT,
                 top_k_pairs=config.POLY_TOPK_PAIRS,
                 min_abs_corr=config.POLY_MIN_ABS_CORR,
             )
-            print(f"[Step6] Polynomial features | added={poly_spec.get('n_added', 0)} | Xtr={Xtr.shape} Xte={Xte.shape}")
+            print(
+                f"[Step6] Polynomial features | added={poly_spec.get('n_added', 0)} | Xtr={Xtr.shape} Xte={Xte.shape}"
+            )
 
-        #-- Step 7: Standardization ---
-        Xtr, Xte, cont_idx_std = standardize(Xtr, Xte, cont_idx=cont_idx_std, return_updated_idx=True)
+        # -- Step 7: Standardization ---
+        Xtr, Xte, cont_idx_std = standardize(
+            Xtr, Xte, cont_idx=cont_idx_std, return_updated_idx=True
+        )
         print(f"[Step7] Standardize | Xtr={Xtr.shape} Xte={Xte.shape}")
 
-        #--- Step 8: Correlation-based pruning ---
+        # --- Step 8: Correlation-based pruning ---
         if config.PRUNE_CORR_THRESHOLD is not None and len(cont_idx_std) > 0:
             Xtr, Xte, dropped_g, kept_g = remove_highly_correlated_continuous(
-                Xtr, Xte, cont_idx=cont_idx_std, y_train=ytr_01, threshold=config.PRUNE_CORR_THRESHOLD
+                Xtr,
+                Xte,
+                cont_idx=cont_idx_std,
+                y_train=ytr_01,
+                threshold=config.PRUNE_CORR_THRESHOLD,
             )
             kept_g = np.asarray(kept_g, dtype=int)
-            print(f"[Step8] Corr prune | thr={config.PRUNE_CORR_THRESHOLD} | dropped={len(dropped_g)}")
+            print(
+                f"[Step8] Corr prune | thr={config.PRUNE_CORR_THRESHOLD} | dropped={len(dropped_g)}"
+            )
         else:
             print("[Step8] Corr prune | skipped")
-            
-        #--- Step 9: Bias term ---
+
+        # --- Step 9: Bias term ---
         if config.ADD_BIAS:
             Xtr = np.hstack([np.ones((Xtr.shape[0], 1), dtype=np.float32), Xtr])
             Xte = np.hstack([np.ones((Xte.shape[0], 1), dtype=np.float32), Xte])
             print(f"[Step9] Bias added | Xtr={Xtr.shape} Xte={Xte.shape}")
 
-        #--- Step 10: Save processed dataset ---
+        # --- Step 10: Save processed dataset ---
         save(Xtr, Xte, ytr_01, train_ids, test_ids)
 
         print(f"[Pipeline] Done | Xtr={Xtr.shape} Xte={Xte.shape}")
-    else: 
+    else:
         Xtr, Xte, ytr_01, train_ids, test_ids = load_preproc_data()
 
     return Xtr, Xte, ytr_01, train_ids, test_ids
 
-#==========================================
-#==========================================
+
+# ==========================================
+# ==========================================
+
 
 def save(Xtr, Xte, ytr, train_ids, test_ids, filename=config.PREPROC_DATA_PATH):
     """
@@ -1151,24 +1283,25 @@ def save(Xtr, Xte, ytr, train_ids, test_ids, filename=config.PREPROC_DATA_PATH):
         None
     """
     np.savez_compressed(
-        filename, 
-        X_train     = Xtr, 
-        X_test      = Xte, 
-        y_train     = ytr, 
-        train_ids   = train_ids, 
-        test_ids    = test_ids
+        filename,
+        X_train=Xtr,
+        X_test=Xte,
+        y_train=ytr,
+        train_ids=train_ids,
+        test_ids=test_ids,
     )
     print(f"[Step10] Saved -> {filename}")
 
-def load_preproc_data(filename=config.PREPROC_DATA_PATH): 
+
+def load_preproc_data(filename=config.PREPROC_DATA_PATH):
     """Load best hyperparameters from disk."""
     if not os.path.exists(filename):
         raise FileNotFoundError(f"{filename} not found.")
-    npz = np.load(filename) 
-    Xtr       = npz["X_train"]
-    Xte       = npz["X_test"]
-    ytr_01    = npz["y_train"]
+    npz = np.load(filename)
+    Xtr = npz["X_train"]
+    Xte = npz["X_test"]
+    ytr_01 = npz["y_train"]
     train_ids = npz["train_ids"]
-    test_ids  = npz["test_ids"]
+    test_ids = npz["test_ids"]
     print(f"[Loaded] Preprocessed data from -> {filename}")
     return Xtr, Xte, ytr_01, train_ids, test_ids

@@ -1,10 +1,10 @@
-import matplotlib.pyplot as plt 
-import numpy as np 
+import matplotlib.pyplot as plt
+import numpy as np
 
 
-def heatmap_lambda_gamma(cm, path, class_names=("0","1")):
+def heatmap_lambda_gamma(cm, path, class_names=("0", "1")):
     fig, ax = plt.subplots()
-    ax.imshow(cm, cmap="Blues") 
+    ax.imshow(cm, cmap="Blues")
     ax.set_xticks(np.arange(len(class_names)))
     ax.set_yticks(np.arange(len(class_names)))
     ax.set_xticklabels(class_names)
@@ -29,5 +29,5 @@ def plot_curve(x, y, path, xlabel, ylabel, title):
     ax.set_title(title)
     ax.grid(True, linestyle="--", linewidth=0.5, alpha=0.7)
     fig.tight_layout()
-    fig.savefig(path, bbox_inches='tight')
+    fig.savefig(path, bbox_inches="tight")
     plt.close(fig)

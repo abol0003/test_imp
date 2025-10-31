@@ -25,9 +25,9 @@ OUTPUT_PRED = "submission_best.csv"
 # 2) ==========================
 # check the pipeline
 
-PREPROCESSING     = False    # reuse preprocessed npz if False
-HYPERPARAM_TUNING = False   # tune or load best params 
-SUBMISSION        = False   # Train final model, Save weights, 
+PREPROCESSING = False  # reuse preprocessed npz if False
+HYPERPARAM_TUNING = False  # tune or load best params
+SUBMISSION = False  # Train final model, Save weights,
 
 RNG_SEED = 42
 
@@ -74,7 +74,7 @@ TUNING_MAX_ITERS = 400
 N_TRIALS = 10
 
 # Grid search parameters (for old grid search method)
-LAMBDA = [1e-8, 1e-7, 1e-6, 1e-5, 1e-4, 1e-3,1e-2,1e-1]
+LAMBDA = [1e-8, 1e-7, 1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1]
 GAMMA = [1e-3, 1e-2, 1e-1, 1]
 
 USE_ADAM_DEFAULT = False
